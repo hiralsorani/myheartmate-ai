@@ -22,39 +22,31 @@ class ModelManager:
     def train(self):
         file_path = "cardio_train_cleaned.csv"
         
-        # Check if file exists, otherwise generate synthetic data for demo
         if os.path.exists(file_path):
-            print(f"Loading data from {file_path}...")
             try:
                 df = pd.read_csv(file_path)
                 X = df.drop("cardio", axis=1)
                 y = df["cardio"]
                 self.feature_columns = X.columns.tolist()
             except Exception as e:
-                print(f"Error reading CSV: {e}. Switching to synthetic data.")
                 self.create_synthetic_data()
                 return
         else:
-            print("CSV not found. Generating synthetic medical data for demonstration...")
             self.create_synthetic_data()
             return
 
-        # Train/Test Split
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=2)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
 
-        # Scaling
         self.scaler = StandardScaler()
         X_train_scaled = self.scaler.fit_transform(X_train)
         X_test_scaled = self.scaler.transform(X_test)
 
-        # Model
-        self.model = LogisticRegression(max_iter=5000, class_weight="balanced")
+        self.model = LogisticRegression(max_iter=68766, class_weight="balanced")
         self.model.fit(X_train_scaled, y_train)
         
         preds = self.model.predict(X_test_scaled)
         self.accuracy = accuracy_score(y_test, preds) * 100
         self.coefs = self.model.coef_[0].tolist()
-        print(f"Model trained. Accuracy: {self.accuracy:.2f}%")
 
     def create_synthetic_data(self):
         self.is_synthetic = True
@@ -62,25 +54,30 @@ class ModelManager:
             "age_years", "gender", "height", "weight", "ap_hi", "ap_lo",
             "cholesterol", "gluc", "smoke", "alco", "active", "BMI", "pulse_pressure"
         ]
-        X, y = make_classification(n_samples=1000, n_features=13, random_state=42)
+        X, y = make_classification(n_samples=1000, n_features=len(self.feature_columns), random_state=0)
         
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-        
         self.scaler = StandardScaler()
         X_train_scaled = self.scaler.fit_transform(X_train)
-        X_test_scaled = self.scaler.transform(X_test)
-        
         self.model = LogisticRegression()
         self.model.fit(X_train_scaled, y_train)
         self.accuracy = 86.42 
-        self.coefs = np.random.rand(13).tolist()
+        self.coefs = np.random.rand(len(self.feature_columns)).tolist()
 
     def predict(self, input_data):
-        df = pd.DataFrame([input_data])
-        df = df[self.feature_columns] # Ensure order
-        scaled_data = self.scaler.transform(df)
-        prob = self.model.predict_proba(scaled_data)[0][1]
-        return prob
+        try:
+            df = pd.DataFrame([input_data])
+            for col in self.feature_columns:
+                if col not in df.columns:
+                    df[col] = 0 
+                    
+            df = df[self.feature_columns]
+            scaled_data = self.scaler.transform(df)
+            prob = self.model.predict_proba(scaled_data)[0][1]
+            return float(prob)
+        except Exception as e:
+            print(f"Prediction error: {e}")
+            return 0.5
 
 # Initialize and train
 manager = ModelManager()
@@ -478,7 +475,7 @@ def predict():
             prob = manager.predict(data)
             prob_val = prob * 100
             
-            if prob > 0.5:
+            if prob > 0.6:
                 risk_class = "danger"
                 risk_text = "High Risk"
                 icon = "exclamation-triangle"
@@ -923,9 +920,9 @@ def resources():
     """
     return render_template_string(BASE_LAYOUT, content=content, title="Resources")
 
-# if __name__ == "__main__":
-#     app.run(debug=True, port=5000)
 if __name__ == "__main__":
-    # Use the port assigned by the cloud provider, default to 5000
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(debug=True, port=5000)
+# if __name__ == "__main__":
+#     # Use the port assigned by the cloud provider, default to 5000
+#     port = int(os.environ.get("PORT", 5000))
+#     app.run(host='0.0.0.0', port=port)

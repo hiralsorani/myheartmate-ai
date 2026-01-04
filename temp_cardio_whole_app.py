@@ -40,7 +40,7 @@ class ModelManager:
             return
 
         # Train/Test Split
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=2)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
 
         # Scaling
         self.scaler = StandardScaler()
@@ -48,7 +48,7 @@ class ModelManager:
         X_test_scaled = self.scaler.transform(X_test)
 
         # Model
-        self.model = LogisticRegression(max_iter=5000, class_weight="balanced")
+        self.model = LogisticRegression(max_iter=68766, class_weight="balanced")
         self.model.fit(X_train_scaled, y_train)
         
         preds = self.model.predict(X_test_scaled)
@@ -62,7 +62,7 @@ class ModelManager:
             "age_years", "gender", "height", "weight", "ap_hi", "ap_lo",
             "cholesterol", "gluc", "smoke", "alco", "active", "BMI", "pulse_pressure"
         ]
-        X, y = make_classification(n_samples=1000, n_features=13, random_state=42)
+        X, y = make_classification(n_samples=68766, n_features=13, random_state=0)
         
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
         
@@ -75,13 +75,22 @@ class ModelManager:
         self.accuracy = 86.42 
         self.coefs = np.random.rand(13).tolist()
 
-    def predict(self, input_data):
+def predict(self, input_data):
+    try:
         df = pd.DataFrame([input_data])
-        df = df[self.feature_columns] # Ensure order
+        
+        # Ensure the input has ALL columns the model expects
+        for col in self.feature_columns:
+            if col not in df.columns:
+                df[col] = 0  # Or a median value
+                
+        df = df[self.feature_columns] # Force correct order
         scaled_data = self.scaler.transform(df)
         prob = self.model.predict_proba(scaled_data)[0][1]
-        return prob
-
+        return float(prob)
+    except Exception as e:
+        print(f"Prediction error: {e}")
+        return 0.6 # Return neutral if error occurs
 # Initialize and train
 manager = ModelManager()
 manager.train()
@@ -90,22 +99,45 @@ manager.train()
 app = Flask(__name__)
 
 # ================= ASSETS (LOGO & ICONS) =================
+# <svg width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="C:\Users\Creater\OneDrive\Desktop\cardio_model">
+
 LOGO_SVG = """
-<svg width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="heartGrad" x1="12.5" y1="12.5" x2="87.5" y2="88" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#ff4757"/>
-      <stop offset="1" stop-color="#ff6b81"/>
-    </linearGradient>
-  </defs>
-  <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-    <feGaussianBlur stdDeviation="2.5" result="blur"/>
-    <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-  </filter>
-  <path d="M50 88C50 88 12.5 56.5 12.5 32.5C12.5 20.5 20.5 12.5 32.5 12.5C41.5 12.5 47.5 18.5 50 22.5C52.5 18.5 58.5 12.5 67.5 12.5C79.5 12.5 87.5 20.5 87.5 32.5C87.5 56.5 50 88 50 88Z" fill="url(#heartGrad)" style="filter: drop-shadow(0px 3px 3px rgba(0,0,0,0.2));"/>
-  <path d="M22 45 L32 45 L42 20 L52 70 L62 45 L78 45" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
+<div style="display:flex; align-items:center; gap:10px;">
+
+    <!-- PNG logo from Flask static folder -->
+    <img src="/static/logo.png" alt="Logo" width="40" height="40">
+
+    <!-- Inline SVG icon -->
+    <svg width="40" height="40" viewBox="0 0 100 100"
+         xmlns="http://www.w3.org/2000/svg">
+
+        <defs>
+            <linearGradient id="heartGrad" x1="12.5" y1="12.5"
+                            x2="87.5" y2="88">
+                <stop stop-color="#ff4757"/>
+                <stop offset="1" stop-color="#ff6b81"/>
+            </linearGradient>
+        </defs>
+
+        <path d="M50 88C50 88 12.5 56.5 12.5 32.5
+                 C12.5 20.5 20.5 12.5 32.5 12.5
+                 C41.5 12.5 47.5 18.5 50 22.5
+                 C52.5 18.5 58.5 12.5 67.5 12.5
+                 C79.5 12.5 87.5 20.5 87.5 32.5
+                 C87.5 56.5 50 88 50 88Z"
+              fill="url(#heartGrad)"/>
+
+        <path d="M22 45 L32 45 L42 20 L52 70 L62 45 L78 45"
+              stroke="white"
+              stroke-width="4"
+              fill="none"
+              stroke-linecap="round"
+              stroke-linejoin="round"/>
+    </svg>
+
+</div>
 """
+
 
 FAVICON_DATA_URI = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>❤️</text></svg>"
 
@@ -900,5 +932,9 @@ def resources():
     """
     return render_template_string(BASE_LAYOUT, content=content, title="Resources")
 
+# if __name__ == "__main__":
+#     app.run(debug=True, port=5000)
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    # Use the port assigned by the cloud provider, default to 5000
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
