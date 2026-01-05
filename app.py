@@ -641,10 +641,9 @@ def disclaimer():
 
 @app.route("/model-stats")
 def model_stats():
-    # --- 1. STATIC DATA PREPARATION (Hardcoded to bypass errors) ---
-    # Representative features for a cardio model
-    static_features = ["Age", "Cholesterol", "Blood Pressure", "Max Heart Rate", "BMI", "Smoking History"]
-    static_coefs = [0.85, 1.2, 0.45, -0.6, 0.9, 1.5]
+    # --- 1. STATIC DATA PREPARATION ---
+    static_features = ["Age", "Cholesterol", "Systolic BP", "BMI", "Glucose", "Physical Activity"]
+    static_coefs = [0.85, 1.2, 1.45, 0.9, 0.3, -0.5]
     
     labels_js = json.dumps(static_features)
     data_js = json.dumps(static_coefs)
@@ -652,20 +651,15 @@ def model_stats():
     x_range = np.linspace(-6, 6, 40).tolist()
     y_sigmoid = [1 / (1 + np.exp(-x)) for x in x_range]
     
-    # --- STATISTICAL PARAMETERS ---
-    accuracy_val = 72.14  # From your terminal output
+    accuracy_val = 72.14
     precision, recall, f1_score = 0.74, 0.71, 0.72
-    log_loss, auc_score = 0.42, 0.81
-    
-    # Confusion Matrix: tn, fp, fn, tp
     tn, fp, fn, tp = 38, 12, 16, 34 
 
-    # --- HTML CONTENT ---
     content = f"""
     <div class="container section-padding">
         <div class="text-center mb-5">
             <h1 class="fw-bold brand-text">Model Performance Metrics</h1>
-            <p class="text-muted">Static View: Analyzing the logic behind MyHeartMate predictions.</p>
+            <p class="text-muted">Analysis of the Logistic Regression Logic</p>
         </div>
 
         <div class="row g-4 mb-4">
@@ -689,7 +683,7 @@ def model_stats():
 
             <div class="col-md-8">
                 <div class="card shadow border-0 h-100 p-4">
-                    <h5 class="fw-bold mb-3"><i class="fas fa-chart-bar me-2 text-primary"></i>Feature Impact Scale (Static Weights)</h5>
+                    <h5 class="fw-bold mb-3"><i class="fas fa-chart-bar me-2 text-primary"></i>Feature Impact Scale</h5>
                     <div style="height: 300px;"><canvas id="featureChart"></canvas></div>
                 </div>
             </div>
@@ -698,27 +692,15 @@ def model_stats():
         <div class="row g-4 mb-4">
             <div class="col-md-6">
                 <div class="card shadow border-0 p-4 h-100">
-                    <h5 class="fw-bold mb-4"><i class="fas fa-th me-2 text-primary"></i>Success Matrix (Confusion)</h5>
+                    <h5 class="fw-bold mb-4"><i class="fas fa-th me-2 text-primary"></i>Confusion Matrix (N=100)</h5>
                     <div class="table-responsive">
                         <table class="table table-bordered text-center align-middle">
                             <thead class="table-light">
-                                <tr>
-                                    <th>N=100 Cases</th>
-                                    <th>Predicted: Healthy</th>
-                                    <th>Predicted: At Risk</th>
-                                </tr>
+                                <tr><th>Actual \ Predicted</th><th>Healthy</th><th>At Risk</th></tr>
                             </thead>
                             <tbody>
-                                <tr>
-                                    <td class="table-light fw-bold">Actual: Healthy</td>
-                                    <td class="bg-success bg-opacity-10">{tn} <br><small>True Negative</small></td>
-                                    <td class="bg-danger bg-opacity-10">{fp} <br><small>False Positive</small></td>
-                                </tr>
-                                <tr>
-                                    <td class="table-light fw-bold">Actual: At Risk</td>
-                                    <td class="bg-danger bg-opacity-10">{fn} <br><small>False Negative</small></td>
-                                    <td class="bg-success bg-opacity-10">{tp} <br><small>True Positive</small></td>
-                                </tr>
+                                <tr><td class="fw-bold">Healthy</td><td class="bg-success bg-opacity-10">{tn}<br>TN</td><td class="bg-danger bg-opacity-10">{fp}<br>FP</td></tr>
+                                <tr><td class="fw-bold">At Risk</td><td class="bg-danger bg-opacity-10">{fn}<br>FN</td><td class="bg-success bg-opacity-10">{tp}<br>TP</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -727,16 +709,14 @@ def model_stats():
 
             <div class="col-md-6">
                 <div class="card shadow border-0 p-4 h-100">
-                    <h5 class="fw-bold mb-3"><i class="fas fa-wave-square me-2 text-primary"></i>Logistic Regression Graph</h5>
+                    <h5 class="fw-bold mb-3"><i class="fas fa-wave-square me-2 text-primary"></i>Sigmoid Decision Curve</h5>
                     <div style="height: 250px;"><canvas id="sigmoidChart"></canvas></div>
-                    <p class="small text-muted mt-2">The sigmoid curve shows how input data is mapped to a 0-1 probability range.</p>
                 </div>
             </div>
         </div>
     </div>
     """
 
-    # --- JAVASCRIPT ---
     scripts = f"""
     <script>
         new Chart(document.getElementById('featureChart'), {{
@@ -744,7 +724,7 @@ def model_stats():
             data: {{
                 labels: {labels_js},
                 datasets: [{{
-                    label: 'Impact Weight',
+                    label: 'Weight',
                     data: {data_js},
                     backgroundColor: 'rgba(13, 110, 253, 0.7)',
                     borderRadius: 5
@@ -758,7 +738,7 @@ def model_stats():
             data: {{
                 labels: {json.dumps([round(x,1) for x in x_range])},
                 datasets: [{{
-                    label: 'Risk Probability',
+                    label: 'Probability',
                     data: {json.dumps(y_sigmoid)},
                     borderColor: '#ff4757',
                     fill: false,
@@ -766,10 +746,7 @@ def model_stats():
                     pointRadius: 0
                 }}]
             }},
-            options: {{ 
-                maintainAspectRatio: false,
-                scales: {{ y: {{ min: 0, max: 1 }} }}
-            }}
+            options: {{ maintainAspectRatio: false, scales: {{ y: {{ min: 0, max: 1 }} }} }}
         }});
     </script>
     """
