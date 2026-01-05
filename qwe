@@ -1,0 +1,185 @@
+from flask import Flask, request
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.naive_bayes import GaussianNB  # <--- CHANGED IMPORT
+from sklearn.metrics import accuracy_score
+
+# ================= TRAIN MODEL =================
+
+df = pd.read_csv("cardio_train_cleaned.csv")
+
+X = df.drop("cardio", axis=1)
+y = df["cardio"]
+
+feature_columns = X.columns.tolist()
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=2
+)
+
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# <--- CHANGED MODEL INSTANTIATION
+model = GaussianNB() 
+model.fit(X_train_scaled, y_train)
+
+accuracy = accuracy_score(y_test, model.predict(X_test_scaled)) * 100
+
+# ================= FLASK APP =================
+
+app = Flask(__name__)
+
+@app.route("/", methods=["GET", "POST"])
+def home():
+    result = ""
+
+    if request.method == "POST":
+        # Inputs
+        try:
+            age_years = float(request.form["age_years"])
+            height = float(request.form["height"])
+            weight = float(request.form["weight"])
+            ap_hi = float(request.form["ap_hi"])
+            ap_lo = float(request.form["ap_lo"])
+            gender = int(request.form["gender"])
+            cholesterol = int(request.form["cholesterol"])
+            gluc = int(request.form["gluc"])
+            smoke = int(request.form["smoke"])
+            alco = int(request.form["alco"])
+            active = int(request.form["active"])
+
+            # Feature Engineering (Must match training data logic)
+            bmi = weight / ((height / 100) ** 2)
+            pulse_pressure = ap_hi - ap_lo
+
+            input_df = pd.DataFrame([{
+                "age_years": age_years,
+                "gender": gender,
+                "height": height,
+                "weight": weight,
+                "ap_hi": ap_hi,
+                "ap_lo": ap_lo,
+                "cholesterol": cholesterol,
+                "gluc": gluc,
+                "smoke": smoke,
+                "alco": alco,
+                "active": active,
+                "BMI": bmi,
+                "pulse_pressure": pulse_pressure
+            }])
+
+            # Ensure columns are in correct order & Scale
+            input_df = input_df[feature_columns]
+            input_scaled = scaler.transform(input_df)
+
+            # Predict Probability using Naive Bayes
+            prob = model.predict_proba(input_scaled)[0][1]
+
+            if prob >= 0.6:
+                result = f"High Risk ({prob*100:.2f}%)"
+            else:
+                result = f"Low Risk ({(1-prob)*100:.2f}%)"
+        except Exception as e:
+            result = f"Error: {str(e)}"
+
+    return f"""
+<html>
+<head>
+    <title>Cardio Disease Prediction (Naive Bayes)</title>
+</head>
+
+<body style="font-family:Arial">
+<h2>Cardio Disease Prediction (Naive Bayes)</h2>
+
+<form method="POST">
+
+    Age (years):
+    <input name="age_years" value="{request.form.get('age_years','')}" required>
+    <br><br>
+
+    Height (cm):
+    <input name="height" value="{request.form.get('height','')}" required>
+    <br><br>
+
+    Weight (kg):
+    <input name="weight" value="{request.form.get('weight','')}" required>
+    <br><br>
+
+    Systolic BP:
+    <input name="ap_hi" value="{request.form.get('ap_hi','')}" required>
+    <br><br>
+
+    Diastolic BP:
+    <input name="ap_lo" value="{request.form.get('ap_lo','')}" required>
+    <br><br>
+
+    Gender:
+    <select name="gender">
+        <option value="1" {"selected" if request.form.get("gender")=="1" else ""}>Male</option>
+        <option value="2" {"selected" if request.form.get("gender")=="2" else ""}>Female</option>
+    </select>
+    <br><br>
+
+    Cholesterol:
+    <select name="cholesterol">
+        <option value="1" {"selected" if request.form.get("cholesterol")=="1" else ""}>Normal</option>
+        <option value="2" {"selected" if request.form.get("cholesterol")=="2" else ""}>Above Normal</option>
+        <option value="3" {"selected" if request.form.get("cholesterol")=="3" else ""}>Well Above Normal</option>
+    </select>
+    <br><br>
+
+    Glucose:
+    <select name="gluc">
+        <option value="1" {"selected" if request.form.get("gluc")=="1" else ""}>Normal</option>
+        <option value="2" {"selected" if request.form.get("gluc")=="2" else ""}>Above Normal</option>
+        <option value="3" {"selected" if request.form.get("gluc")=="3" else ""}>Well Above Normal</option>
+    </select>
+    <br><br>
+
+    Smoke:
+    <select name="smoke">
+        <option value="0" {"selected" if request.form.get("smoke")=="0" else ""}>No</option>
+        <option value="1" {"selected" if request.form.get("smoke")=="1" else ""}>Yes</option>
+    </select>
+    <br><br>
+
+    Alcohol:
+    <select name="alco">
+        <option value="0" {"selected" if request.form.get("alco")=="0" else ""}>No</option>
+        <option value="1" {"selected" if request.form.get("alco")=="1" else ""}>Yes</option>
+    </select>
+    <br><br>
+
+    Active:
+    <select name="active">
+        <option value="0" {"selected" if request.form.get("active")=="0" else ""}>No</option>
+        <option value="1" {"selected" if request.form.get("active")=="1" else ""}>Yes</option>
+    </select>
+    <br><br>
+
+    <button type="submit" style="background:#4CAF50;color:white;padding:8px 15px;border:none;border-radius:5px;">Predict</button>
+
+    <a href="/" style="
+        display:inline-block;
+        padding:8px 15px;
+        margin-left:10px;
+        background:#f44336;
+        color:white;
+        text-decoration:none;
+        border-radius:5px;
+    ">Refresh</a>
+
+</form>
+
+<h3>{result}</h3>
+<p>Model Accuracy: {accuracy:.2f}%</p>
+
+</body>
+</html>
+"""
+
+if __name__ == "__main__":
+    app.run(debug=True)

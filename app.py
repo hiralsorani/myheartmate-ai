@@ -8,77 +8,81 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from sklearn.datasets import make_classification
+import joblib
 
-# ================= CONFIGURATION & MODEL TRAINING =================
 class ModelManager:
     def __init__(self):
         self.model = None
         self.scaler = None
         self.accuracy = 0.0
         self.feature_columns = []
-        self.coefs = []
-        self.is_synthetic = False
+        self.model_path = 'cardio_model.pkl'
+        self.scaler_path = 'scaler.pkl'
 
     def train(self):
+        """Unified training function to reach 75%+ accuracy"""
         file_path = "cardio_train_cleaned.csv"
         
-        if os.path.exists(file_path):
-            try:
-                df = pd.read_csv(file_path)
-                X = df.drop("cardio", axis=1)
-                y = df["cardio"]
-                self.feature_columns = X.columns.tolist()
-            except Exception as e:
-                self.create_synthetic_data()
-                return
-        else:
-            self.create_synthetic_data()
+        if not os.path.exists(file_path):
+            print("Data file not found!")
             return
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
+        df = pd.read_csv(file_path)
+
+        # --- Feature Engineering for higher accuracy ---
+        if 'BMI' not in df.columns:
+            df['BMI'] = df['weight'] / ((df['height'] / 100) ** 2)
+        if 'pulse_pressure' not in df.columns:
+            df['pulse_pressure'] = df['ap_hi'] - df['ap_lo']
+
+        X = df.drop("cardio", axis=1)
+        y = df["cardio"]
+        self.feature_columns = X.columns.tolist()
+
+        # Split 80/20 for better stability
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
         self.scaler = StandardScaler()
         X_train_scaled = self.scaler.fit_transform(X_train)
         X_test_scaled = self.scaler.transform(X_test)
 
-        self.model = LogisticRegression(max_iter=68766, class_weight="balanced")
+        # Logistic Regression with improved parameters
+        self.model = LogisticRegression(max_iter=2000, solver='liblinear')
         self.model.fit(X_train_scaled, y_train)
         
         preds = self.model.predict(X_test_scaled)
         self.accuracy = accuracy_score(y_test, preds) * 100
-        self.coefs = self.model.coef_[0].tolist()
-
-    def create_synthetic_data(self):
-        self.is_synthetic = True
-        self.feature_columns = [
-            "age_years", "gender", "height", "weight", "ap_hi", "ap_lo",
-            "cholesterol", "gluc", "smoke", "alco", "active", "BMI", "pulse_pressure"
-        ]
-        X, y = make_classification(n_samples=1000, n_features=len(self.feature_columns), random_state=0)
         
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-        self.scaler = StandardScaler()
-        X_train_scaled = self.scaler.fit_transform(X_train)
-        self.model = LogisticRegression()
-        self.model.fit(X_train_scaled, y_train)
-        self.accuracy = 86.42 
-        self.coefs = np.random.rand(len(self.feature_columns)).tolist()
+        # Save files so Predict can use them
+        joblib.dump(self.model, self.model_path)
+        joblib.dump(self.scaler, self.scaler_path)
+        
+        print(f"Training Complete! Accuracy: {self.accuracy:.2f}%")
 
     def predict(self, input_data):
+        """Uses the trained model to predict on new data"""
         try:
+            if self.model is None:
+                self.model = joblib.load(self.model_path)
+                self.scaler = joblib.load(self.scaler_path)
+
             df = pd.DataFrame([input_data])
-            for col in self.feature_columns:
-                if col not in df.columns:
-                    df[col] = 0 
-                    
+
+            # Ensure engineered features exist in prediction input
+            if 'BMI' not in df.columns:
+                df['BMI'] = df['weight'] / ((df['height'] / 100) ** 2)
+            if 'pulse_pressure' not in df.columns:
+                df['pulse_pressure'] = df['ap_hi'] - df['ap_lo']
+            
+            # Match the exact column order from training
             df = df[self.feature_columns]
+            
             scaled_data = self.scaler.transform(df)
             prob = self.model.predict_proba(scaled_data)[0][1]
             return float(prob)
         except Exception as e:
             print(f"Prediction error: {e}")
             return 0.5
-
 # Initialize and train
 manager = ModelManager()
 manager.train()
