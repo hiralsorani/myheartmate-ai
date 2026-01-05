@@ -96,9 +96,6 @@ app = Flask(__name__)
 LOGO_SVG = """
 <div style="display:flex; align-items:center; gap:10px;">
 
-    <!-- PNG logo from Flask static folder -->
-    <img src="/static/logo.png" alt="Logo" width="40" height="40">
-
     <!-- Inline SVG icon -->
     <svg width="40" height="40" viewBox="0 0 100 100"
          xmlns="http://www.w3.org/2000/svg">
@@ -924,9 +921,9 @@ def resources():
     """
     return render_template_string(BASE_LAYOUT, content=content, title="Resources")
 
-if __name__ == "__main__":
-    app.run(debug=True, port=5000)
 # if __name__ == "__main__":
-#     # Use the port assigned by the cloud provider, default to 5000
-#     port = int(os.environ.get("PORT", 5000))
-#     app.run(host='0.0.0.0', port=port)
+#     app.run(debug=True, port=5000)
+if __name__ == "__main__":
+    # Use the port assigned by the cloud provider, default to 5000
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
