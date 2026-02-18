@@ -47,7 +47,7 @@ class ModelManager:
         X_test_scaled = self.scaler.transform(X_test)
 
         # Logistic Regression with improved parameters
-        self.model = LogisticRegression(max_iter=2000, solver='liblinear')
+        self.model = LogisticRegression(max_iter=68742, solver='liblinear')
         self.model.fit(X_train_scaled, y_train)
         
         preds = self.model.predict(X_test_scaled)
@@ -751,6 +751,7 @@ def model_stats():
     </script>
     """
     return render_template_string(BASE_LAYOUT, content=content, scripts=scripts, title="Model Stats")
+
 @app.route("/about")
 def about():
     content = """
