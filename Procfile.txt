@@ -1,1 +1,1 @@
-web: python cardio_app.py
+web: gunicorn ai_app1:app
